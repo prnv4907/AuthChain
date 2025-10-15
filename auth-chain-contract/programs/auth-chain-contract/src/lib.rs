@@ -14,6 +14,9 @@ pub mod auth_chain_contract {
         pdaAccount.product_id = product_id;
         pdaAccount.last_updated_time = clock.unix_timestamp;
         pdaAccount.bump = ctx.bumps.pdaAccount;
+        let OwnerAccount: Pubkey = pdaAccount.owner.clone();
+        pdaAccount.owners = Vec::new();
+        pdaAccount.owners.push(OwnerAccount);
         msg!(
             "pda account has been created on address{}",
             pdaAccount.key()
@@ -29,6 +32,8 @@ pub mod auth_chain_contract {
         let mut pdaAccount = &mut ctx.accounts.pdaAccount;
         let owner = pdaAccount.owner;
         pdaAccount.owner = new_owner.key();
+        let newOwner = pdaAccount.owner.clone();
+        pdaAccount.owners.push(newOwner);
         pdaAccount.last_updated_time = clock.unix_timestamp;
         emit!(TransferEvent {
             from: owner,
@@ -51,7 +56,7 @@ pub struct Initialize<'info> {
     #[account(init,
     payer=signer,
     space=8+32+8+8+1,
-    seeds=[b"product1",product_id.to_le_bytes().as_ref()], 
+    seeds=[b"auth",product_id.to_le_bytes().as_ref()], 
     bump)]
     pub pdaAccount: Account<'info, ProductAccount>,
     pub system_program: Program<'info, System>,
@@ -62,7 +67,7 @@ pub struct TransferAccount<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
     #[account(mut,
-    seeds=[b"product1",product_id.to_le_bytes().as_ref()],
+    seeds=[b"auth",product_id.to_le_bytes().as_ref()],
     bump=pdaAccount.bump,
     constraint=pdaAccount.owner==signer.key()@AuthChainError::InvalidOwner)]
     pub pdaAccount: Account<'info, ProductAccount>,
@@ -74,6 +79,7 @@ pub struct ProductAccount {
     pub product_id: u64,
     pub last_updated_time: i64,
     pub bump: u8,
+    pub owners: Vec<Pubkey>,
 }
 #[error_code]
 pub enum AuthChainError {
